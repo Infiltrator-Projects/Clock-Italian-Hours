@@ -98,57 +98,41 @@ static bool render(const InfiltratrTemporalClockProvider *self,
     return true;
 }
 
-/*
- * The observer needs three distinct results: unchanged, changed, and failed.
- * A failed future render must never be confused with a stable solar interval.
- */
-static bool changed(int64_t instant, uint32_t delay, bool seconds,
-                    double lat, double lon, const char *previous,
-                    bool *different)
-{
-    const int64_t delta = (int64_t)delay * INT64_C(1000);
-    char output[96];
-
-    if (different == NULL || previous == NULL ||
-        instant > INT64_MAX - delta ||
-        !render(NULL, NULL, instant + delta, 0, seconds, false,
-                lat, lon, output, sizeof(output), NULL))
-        return false;
-    *different = strcmp(previous, output) != 0;
-    return true;
-}
-
+/* Compute the exact next display boundary rather than repeatedly
+ * rendering solar events in a binary search. Both the elapsed-hour boundary
+ * and the next sunset can change the visible text. */
 static bool next_tick(const InfiltratrTemporalClockProvider *self,
-                      int64_t instant,int32_t offset,bool seconds,
-                      double lat,double lon,uint32_t *milliseconds)
+                      int64_t instant, int32_t offset, bool seconds,
+                      double lat, double lon, uint32_t *milliseconds)
 {
-    (void)self;(void)offset;
-    if (!milliseconds) return false;
-    char previous[96];
-    if (!render(NULL,NULL,instant,0,seconds,false,lat,lon,
-                previous,sizeof(previous),NULL)) return false;
-    uint32_t lo=0;
-    uint32_t hi=seconds?2000U:61000U;
-    bool different = false;
-    if (!changed(instant, hi, seconds, lat, lon, previous, &different))
+    (void)self;
+    (void)offset;
+    if (!milliseconds || !isfinite(lat) || lat < -90.0 || lat > 90.0 ||
+        !isfinite(lon) || lon < -180.0 || lon > 180.0 ||
+        instant < INT64_MIN + 3 * US_DAY ||
+        instant > INT64_MAX - 3 * US_DAY)
         return false;
-    if (!different) {
-        /* Only a genuine polar no-crossing condition permits N/A retry. */
-        if (strncmp(previous, "N/A ", 4) == 0) {
-            *milliseconds = 60000U;
-            return true;
-        }
-        return false;
+
+    const int64_t day = floor_div(instant, US_DAY);
+    int64_t next_origin = INT64_MAX;
+    for (int delta = -2; delta <= 2; ++delta) {
+        int64_t candidate;
+        if (origin_on_day(day + delta, lat, lon, &candidate) &&
+            candidate > instant && candidate < next_origin)
+            next_origin = candidate;
     }
-    while (hi - lo > 1U) {
-        const uint32_t mid = lo + (hi - lo) / 2U;
-        if (!changed(instant, mid, seconds, lat, lon, previous, &different))
-            return false;
-        if (different) hi = mid;
-        else lo = mid;
+
+    int64_t origin;
+    int64_t until = INT64_C(60000000); /* Polar N/A: retry in one minute. */
+    if (previous_origin(instant, lat, lon, &origin)) {
+        const int64_t period = seconds ? US_SECOND : INT64_C(60) * US_SECOND;
+        const int64_t elapsed = instant - origin;
+        until = period - elapsed % period;
     }
-    *milliseconds=hi;
-    return true;
+    if (next_origin != INT64_MAX && next_origin - instant < until)
+        until = next_origin - instant;
+    *milliseconds = (uint32_t)((until + 999) / 1000);
+    return *milliseconds != 0U;
 }
 
 static const InfiltratrTemporalResourceMetadata metadata={
