@@ -5,10 +5,11 @@
   "example": "If sunset was at 18:30, 21:00 is 02:30 IT. At 06:30 the following morning the reading is 12:00 IT, provided no later sunset has occurred.",
   "history": "Sunset-origin Italian hours were historically used in parts of Europe. Some historical conventions and instruments expressed the boundary differently; this resource implements zero-based elapsed time.",
   "model": "The provider computes sunset candidates using compact solar equation-of-time and declination terms, latitude, east-positive longitude and a 0.833-degree horizon correction. Select the most recent valid sunset in a bounded search, floor elapsed seconds and format ordinary time fields. The next visible boundary is the earlier of the next elapsed-unit boundary or next sunset, rounded upward to milliseconds.",
-  "limits": "Requires valid latitude and longitude. Missing solar crossings produce N/A; invalid input fails. The solar event is approximate, not an independently observed historical sunset. Civil timezone and daylight saving do not change it.",
+  "limits": "Requires valid latitude and longitude. Missing solar crossings produce N/A; invalid input fails. The solar event is approximate, not an independently observed historical sunset. Civil timezone and daylight saving do not change it. The solar model assumes an idealised sea-level horizon and standard depression; local terrain and weather are not modelled.",
   "sources": [
     "Implementation: https://github.com/Infiltrator-Projects/Clock-Italian-Hours/blob/main/src/provider.c",
     "Model evidence: https://github.com/Infiltrator-Projects/Clock-Italian-Hours/blob/main/docs/MODEL.md",
-    "Shared contract: https://github.com/Infiltrator-Projects/Libraries/blob/main/docs/TEMPORAL_PROVIDERS.md"
+    "Shared contract: https://github.com/Infiltrator-Projects/Libraries/blob/main/docs/TEMPORAL_PROVIDERS.md",
+    "Historical qualification: https://github.com/Infiltrator-Projects/Clock-Italian-Hours/blob/main/docs/FORENSIC-AUDIT.md"
   ]
 }
